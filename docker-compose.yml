@@ -1,0 +1,90 @@
+version: "3.4"
+
+services:
+  php:
+    container_name: appflame_php
+    build:
+      context: docker/php
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app
+      - ./.git:/app/.git
+    depends_on:
+      - db
+      - memcached
+    networks:
+      - appflame
+
+  php-consumer:
+    container_name: appflame_php_consumer
+    build:
+      context: docker/php-consumer
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app
+      - ./.git:/app/.git
+    depends_on:
+      - php
+    networks:
+      - appflame
+
+  nginx:
+    container_name: appflame_nginx
+    build:
+      context: docker/nginx
+    restart: unless-stopped
+    volumes:
+      - ./app/public:/app/public
+    env_file:
+      - .env
+    ports:
+      - "8081:8081"
+    depends_on:
+      - php
+    networks:
+      - appflame
+
+  db:
+    container_name: appflame_database
+    image: postgis/postgis:13-3.1
+    volumes:
+      - ./docker/database:/var/lib/postgresql/data
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - "POSTGRES_USER=${DB_USER}"
+      - "POSTGRES_PASSWORD=${DB_PASSWORD}"
+      - "POSTGRES_DB=${DB_DATABASE}"
+    ports:
+      - "5432:5432"
+    networks:
+      - appflame
+
+  redis:
+    container_name: appflame_redis
+    image: redis:7.0.2-alpine
+    tty: true
+    volumes:
+      - ./docker/redis/data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - appflame
+
+  memcached:
+    container_name: appflame_memcached
+    image: memcached:latest
+    restart: unless-stopped
+    networks:
+      - appflame
+    ports:
+      - "11211:11211"
+
+networks:
+  appflame:
